@@ -1,5 +1,5 @@
 def call(Map config = [:]) {
-    def harFilePath = config.harFilePath ?: '/var/jenkins_home/input/t380.vxdev.de.har'
+    def harFilePath = config.harFilePath ?: '/var/jenkins_home/input/test.har'
     def zapContainerName = config.zapContainerName ?: "gco-e2e-zap-${env.BUILD_ID}"
     def zapImage = config.zapImage ?: 'zaproxy/zap-stable:2.15.0'
     def zapAlertsSummaryFilename = config.zapAlertsSummaryFilename ?: 'output/owasp-zap-summary-report.json'
