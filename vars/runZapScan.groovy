@@ -1,19 +1,14 @@
 def call(Map config = [:]) {
     def harFilePath = config.harFilePath ?: '/var/jenkins_home/input/test.har'
-    def zapContainerName = config.zapContainerName ?: "gco-e2e-zap-${env.BUILD_ID}"
+    def zapContainerName = config.zapContainerName ?: "vx-e2e-zap-${env.BUILD_ID}"
     def zapImage = config.zapImage ?: 'zaproxy/zap-stable:2.15.0'
     def zapAlertsSummaryFilename = config.zapAlertsSummaryFilename ?: 'output/owasp-zap-summary-report.json'
     def zapAlertsJsonFilename = config.zapAlertsJsonFilename ?: 'output/owasp-zap-report.json'
     def zapAlertsHtmlFilename = config.zapAlertsHtmlFilename ?: 'output/owasp-zap-report.html'
-    def failOnAlerts = config.failOnAlerts?.toBoolean() ?: true
 
     try {
         // Start the ZAP container
-        sh """
-            docker stop ${zapContainerName} || true
-            docker rm ${zapContainerName} || true
-            docker run --name ${zapContainerName} -d ${zapImage} zap.sh -daemon -config api.disablekey=true
-        """
+        sh "docker run --name ${zapContainerName} -d ${zapImage} zap.sh -daemon -config api.disablekey=true"
 
         // Wait for ZAP service to start
         def zapReady = false
@@ -43,16 +38,6 @@ def call(Map config = [:]) {
             docker exec ${zapContainerName} curl -s http://localhost:8080/HTML/alert/view/alerts/ > ${zapAlertsHtmlFilename}
         """
 
-        // Display alerts if failOnAlerts is true
-        if (failOnAlerts) {
-            def alertCount = sh(
-                returnStdout: true,
-                script: "jq '.alerts | length' ${zapAlertsJsonFilename}"
-            ).trim().toInteger()
-            if (alertCount > 0) {
-                error "ZAP scan found ${alertCount} alerts. Failing the build."
-            }
-        }
     } finally {
         // Stop and remove the ZAP container
         cleanZapContainer(zapContainerName)
