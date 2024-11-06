@@ -38,6 +38,10 @@ def call(Map config = [:]) {
             docker exec ${zapContainerName} curl -s http://localhost:8080/HTML/alert/view/alerts/ > ${zapAlertsHtmlFilename}
         """
 
+        // Archive artifacts only if the above steps succeed
+        archiveZapArtifacts([zapAlertsSummaryFilename, zapAlertsJsonFilename, zapAlertsHtmlFilename])
+
+
     } finally {
         // Stop and remove the ZAP container
         cleanZapContainer(zapContainerName)
@@ -50,4 +54,16 @@ def cleanZapContainer(String containerName) {
         docker stop ${containerName} || true
         docker rm ${containerName} || true
     """
+}
+
+// Archive ZAP artifacts
+def archiveZapArtifacts(List<String> filenames) {
+    filenames.each { filename ->
+        if (fileExists(filename)) {
+            archiveArtifacts artifacts: filename, allowEmptyArchive: true
+            echo "Archived artifact: ${filename}"
+        } else {
+            echo "Warning: Artifact not found - ${filename}"
+        }
+    }
 }
