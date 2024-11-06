@@ -23,14 +23,18 @@ def call(Map config = [:]) {
             error "OWASP ZAP service is not ready after 120 seconds. Exiting."
         }        
         
-        // Loop through each HAR file in the directory and import it to ZAP
         echo "OWASP ZAP service is up. Importing HAR files from directory: ${harDirectoryPath}"
+        // Find and import each HAR file in the directory
         def harDirectory = new File(harDirectoryPath)
         if (harDirectory.exists() && harDirectory.isDirectory()) {
-            harDirectory.eachFileMatch(~/.*\.har/) { harFile ->
-                def filePathUrlEncoded = URLEncoder.encode(harFile.absolutePath, "UTF-8")
-                echo "Sending HAR file '${harFile.name}' to OWASP ZAP ..."
-                sh "docker exec ${zapContainerName} curl -X GET 'http://localhost:8080/JSON/exim/action/importHar/?filePath=${filePathUrlEncoded}'"
+            harDirectory.listFiles().each { harFile ->
+                if (harFile.name.endsWith(".har")) {
+                    echo "Sending HAR file '${harFile.name}' to OWASP ZAP ..."
+
+                    // URL encode the file path
+                    def urlEncodedHarFilePath = URLEncoder.encode(harFile.absolutePath, "UTF-8")
+                    sh "docker exec ${zapContainerName} curl -X GET 'http://localhost:8080/JSON/exim/action/importHar/?filePath=${urlEncodedHarFilePath}'"
+                }
             }
         } else {
             error "HAR directory not found or is not a directory: ${harDirectoryPath}"
