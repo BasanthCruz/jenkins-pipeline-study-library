@@ -1,5 +1,5 @@
 def call(Map config = [:]) {
-    def harFilePath = config.harFilePath ?: '/var/jenkins_home/input/test.har'
+    def harDirectoryPath = config.harDirectoryPath ?: '/var/jenkins_home/input'
     def zapContainerName = config.zapContainerName ?: "vx-e2e-zap-${env.BUILD_ID}"
     def zapImage = config.zapImage ?: 'zaproxy/zap-stable:2.15.0'
     def zapAlertsSummaryFilename = config.zapAlertsSummaryFilename ?: 'output/owasp-zap-summary-report.json'
@@ -21,12 +21,21 @@ def call(Map config = [:]) {
         }
         if (!zapReady) {
             error "OWASP ZAP service is not ready after 120 seconds. Exiting."
+        }        
+        
+        // Loop through each HAR file in the directory and import it to ZAP
+        echo "OWASP ZAP service is up. Importing HAR files from directory: ${harDirectoryPath}"
+        def harDirectory = new File(harDirectoryPath)
+        if (harDirectory.exists() && harDirectory.isDirectory()) {
+            harDirectory.eachFileMatch(~/.*\.har/) { harFile ->
+                def filePathUrlEncoded = URLEncoder.encode(harFile.absolutePath, "UTF-8")
+                echo "Sending HAR file '${harFile.name}' to OWASP ZAP ..."
+                sh "docker exec ${zapContainerName} curl -X GET 'http://localhost:8080/JSON/exim/action/importHar/?filePath=${filePathUrlEncoded}'"
+            }
+        } else {
+            error "HAR directory not found or is not a directory: ${harDirectoryPath}"
         }
-
-        // Import the HAR file to ZAP
-        def filePathUrlEncoded = harFilePath.bytes.encodeBase64().toString()
-        sh "docker exec ${zapContainerName} curl -X GET 'http://localhost:8080/JSON/exim/action/importHar/?filePath=${filePathUrlEncoded}'"
-
+        
         // Wait for ZAP to process the HAR file and generate alerts
         sleep 15
 
