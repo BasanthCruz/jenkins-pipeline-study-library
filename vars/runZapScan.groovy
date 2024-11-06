@@ -7,8 +7,10 @@ def call(Map config = [:]) {
     def zapAlertsHtmlFilename = config.zapAlertsHtmlFilename ?: 'output/owasp-zap-report.html'
 
     try {
-        // Start the ZAP container
-        sh "docker run --name ${zapContainerName} -d ${zapImage} zap.sh -daemon -config api.disablekey=true"
+        echo "Starting OWASP ZAP container with name: ${zapContainerName} and mounting HAR directory."
+
+        // Start the ZAP container with volume mount for HAR directory
+        sh "docker run --name ${zapContainerName} -v ${harDirectoryPath}:/zap/wrk/input -d ${zapImage} zap.sh -daemon -config api.disablekey=true"
 
         // Wait for ZAP service to start
         def zapReady = false
@@ -31,9 +33,9 @@ def call(Map config = [:]) {
                 if (harFile.name.endsWith(".har")) {
                     echo "Sending HAR file '${harFile.name}' to OWASP ZAP ..."
 
-                    // URL encode the file path
-                    def urlEncodedHarFilePath = URLEncoder.encode(harFile.absolutePath, "UTF-8")
-                    sh "docker exec ${zapContainerName} curl -X GET 'http://localhost:8080/JSON/exim/action/importHar/?filePath=${urlEncodedHarFilePath}'"
+                    // Pass unencoded file path as it's directly accessible in the container
+                    def harFilePathInContainer = "/zap/wrk/input/${harFile.name}"
+                    sh "docker exec ${zapContainerName} curl -X GET 'http://localhost:8080/JSON/exim/action/importHar/?filePath=${harFilePathInContainer}'"
                 }
             }
         } else {
